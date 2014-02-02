@@ -3,7 +3,7 @@ require 'test_driven_search'
 
 describe TestDrivenSearch do
 
-  before do
+  before :all do
     @client = Elasticsearch::Client.new host: 'localhost:9200'
 
     if @client.indices.exists index: 'japanese-text-test'
@@ -66,15 +66,18 @@ describe TestDrivenSearch do
       title: 'java...',
       body:  'javaはあまり得意ではありません',
     }
-    @client.indices.refresh index: 'japanese-text-test'
+
+    # To search docs immediately.
+    # @client.indices.refresh index: 'japanese-text-test'
   end
 
-  describe '#test_a' do
-    it { expect(TestDrivenSearch.test_a).to eq(123) }
-    it { expect(TestDrivenSearch.test_a).not_to eq(9123) }
+  describe 'query' do
+    res_ids = TestDrivenSearch.search_by_body('ruby').map{|i| i['_source']['id']}
+    it { expect(res_ids).to include(1001) }
+    it { expect(res_ids).not_to include(1002) }
   end
 
-  describe '#search_by_body' do
+  describe 'boost' do
     res_ids = TestDrivenSearch.search_by_body('ruby').map{|i| i['_source']['id']}
     it { expect(res_ids).to include(1001) }
     it { expect(res_ids).not_to include(1002) }

@@ -2,10 +2,6 @@
 
 module TestDrivenSearch
 
-  def self.test_a
-    123
-  end
-
   def self.search_by_body(_body)
     client = Elasticsearch::Client.new host: 'localhost:9200', log: true
     response = client.search :index => 'japanese-text-test', body: {
