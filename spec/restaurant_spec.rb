@@ -50,3 +50,14 @@ describe 'Restaurant' do
   # end
 
 end
+
+
+# curl -XGET "http://localhost:9200/livedoor-gourmet-test/_search" -d'
+# {
+#    "query": {
+#         "multi_match" : {
+#             "query" : "京都",
+#             "fields" : [ "address.kuromoji^2", "address.ngram" ]
+#         }
+#    }
+#  }'

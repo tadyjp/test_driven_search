@@ -42,8 +42,8 @@ class Restaurant < ActiveRecord::Base
           filter: {
             ngram_filter: {
               type: 'nGram',
-              min_gram: 3,
-              max_gram: 25
+              min_gram: 1,
+              max_gram: 4
             }
           },
           analyzer: {
