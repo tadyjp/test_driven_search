@@ -42,7 +42,7 @@ class Restaurant < ActiveRecord::Base
           filter: {
             ngram_filter: {
               type: 'nGram',
-              min_gram: 1,
+              min_gram: 2,
               max_gram: 4
             }
           },
@@ -71,7 +71,15 @@ class Restaurant < ActiveRecord::Base
           _id: {path: 'id'},
           properties: {
             id:                {type: 'integer', analyzer: 'ngram_analyzer'},
-            name:              {type: 'string', analyzer: 'ngram_analyzer'},
+            # name:              {type: 'string', analyzer: 'ngram_analyzer'},
+            name: {
+              type: 'multi_field',
+              # path: 'address2',
+              fields: {
+                ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
+                kuromoji: {type: 'string', analyzer: 'kuromoji'},
+              }
+            },
             property:          {type: 'string', analyzer: 'ngram_analyzer'},
             alphabet:          {type: 'string', analyzer: 'ngram_analyzer'},
             name_kana:         {type: 'string', analyzer: 'ngram_analyzer'},
@@ -142,8 +150,21 @@ class Restaurant < ActiveRecord::Base
   end
 
   def self.search(_str)
+    # response = es_client.search :index => es_index_name, body: {
+    #   query: { match: { _all: _str } }
+    # }
     response = es_client.search :index => es_index_name, body: {
-      query: { match: { _all: _str } }
+      query: {
+        multi_match: {
+          query: _str,
+          fields: [
+            "name.kuromoji^2",
+            "name.ngram",
+            "address.kuromoji^2",
+            "address.ngram"
+          ],
+        }
+      }
     }
     response['hits']['hits'].map{|i| i['_source']['id']}
   end

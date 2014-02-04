@@ -12,9 +12,9 @@ describe 'Restaurant' do
     Restaurant.es_delete_index
     Restaurant.es_create_index # in_memory: true
 
-    Restaurant.es_index_doc id: 1001, name: 'らーめん田中', address: '東京都港区区'
+    Restaurant.es_index_doc id: 1001, name: 'らーめん田中', address: '神奈川県横浜'
     Restaurant.es_index_doc id: 1002, name: '新宿ラーメン', address: '東京都千代田区区'
-    Restaurant.es_index_doc id: 1003, name: 'カフェ Jack', address: '神奈川県横浜'
+    Restaurant.es_index_doc id: 1003, name: 'カフェ Jack', address: '東京都港区区'
     Restaurant.es_index_doc id: 1004, name: 'ラーメン東京一番', address: '東京都新宿区'
     Restaurant.es_index_doc id: 1005, name: 'カフェ Taro', address: '京都府左京区'
     Restaurant.es_index_doc id: 1006, name: 'カフェ Taro', address: '東京都大田区'
@@ -24,7 +24,7 @@ describe 'Restaurant' do
 
   describe 'query' do
     it { expect(Restaurant.search('ラーメン')).to include(1002) }
-    it { expect(Restaurant.search('ラーメン')).not_to include(1001) }
+    it { expect(Restaurant.search('ラーメン')).to include(1001) }
   end
 
   describe 'boost' do
@@ -52,12 +52,3 @@ describe 'Restaurant' do
 end
 
 
-# curl -XGET "http://localhost:9200/livedoor-gourmet-test/_search" -d'
-# {
-#    "query": {
-#         "multi_match" : {
-#             "query" : "京都",
-#             "fields" : [ "address.kuromoji^2", "address.ngram" ]
-#         }
-#    }
-#  }'
