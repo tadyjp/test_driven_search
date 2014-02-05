@@ -20,7 +20,7 @@ class Restaurant < ActiveRecord::Base
   end
 
   def self.es_client
-    @_es_client ||= Elasticsearch::Client.new host: es_host
+    @_es_client ||= Elasticsearch::Client.new host: es_host, log: true
   end
 
   def self.es_delete_index
@@ -39,29 +39,40 @@ class Restaurant < ActiveRecord::Base
           # store: { type: options[:in_memory] ? 'memory' : nil },
         },
         analysis: {
+          tokenizer: {
+            ngram_tokenizer: {
+              type: 'nGram',
+              min_gram: 2,
+              max_gram: 3,
+              token_chars: ['letter', 'digit']
+            }
+          },
           filter: {
             ngram_filter: {
               type: 'nGram',
               min_gram: 2,
-              max_gram: 4
+              max_gram: 7
+            },
+            katakana_readingform: {
+              type: 'kuromoji_readingform',
+              use_romaji: false
+            },
+            ja_collator: {
+              type: 'icu_collation',
+              language: 'ja'
             }
           },
           analyzer: {
             ngram_analyzer: {
               type: 'custom',
-              tokenizer: 'whitespace',
-              filter: ['lowercase', 'stop', 'ngram_filter'],
-            },
-            ngram_search: {
-              type: 'custom',
-              tokenizer: 'whitespace',
-              filter: ['lowercase', 'stop'],
+              tokenizer: 'ngram_tokenizer',
+              filter: ['lowercase', 'stop', 'ja_collator'],
             },
             kuromoji_analyzer: {
               type: 'custom',
               tokenizer: 'kuromoji_tokenizer',
               # filter: ['kuromoji_baseform', 'pos_filter', 'greek_lowercase_filter', 'cjk_width']
-              filter: ['kuromoji_baseform'],
+              filter: ['kuromoji_baseform', 'katakana_readingform'],
             },
           }
         }
@@ -70,16 +81,22 @@ class Restaurant < ActiveRecord::Base
         restaurant: {
           _id: {path: 'id'},
           properties: {
-            id:                {type: 'integer', analyzer: 'ngram_analyzer'},
+            id:                {type: 'integer', index: 'not_analyzed'},
             # name:              {type: 'string', analyzer: 'ngram_analyzer'},
-            name: {
-              type: 'multi_field',
-              # path: 'address2',
-              fields: {
-                ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
-                kuromoji: {type: 'string', analyzer: 'kuromoji'},
-              }
-            },
+
+            # うまくsearch analyzerが設定できない...
+            # name: {
+            #   type: 'multi_field',
+            #   # path: 'address2',
+            #   fields: {
+            #     ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
+            #     kuromoji: {type: 'string', analyzer: 'kuromoji_analyzer'},
+            #   }
+            # },
+
+            name_ngram:        {type: 'string', analyzer: 'ngram_analyzer'},
+            name_kuromoji:     {type: 'string', analyzer: 'kuromoji_analyzer'},
+
             property:          {type: 'string', analyzer: 'ngram_analyzer'},
             alphabet:          {type: 'string', analyzer: 'ngram_analyzer'},
             name_kana:         {type: 'string', analyzer: 'ngram_analyzer'},
@@ -105,7 +122,7 @@ class Restaurant < ActiveRecord::Base
               # path: 'address2',
               fields: {
                 ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
-                kuromoji: {type: 'string', analyzer: 'kuromoji'},
+                kuromoji: {type: 'string', analyzer: 'kuromoji_analyzer'},
               }
             },
             # north_latitude:    {type: 'string', analyzer: 'ngram_analyzer'},
@@ -134,6 +151,10 @@ class Restaurant < ActiveRecord::Base
   end
 
   def self.es_index_doc(_hash)
+    name = _hash.delete(:name)
+    _hash[:name_ngram] = name
+    _hash[:name_kuromoji] = name
+
     es_client.index index: es_index_name, type: es_type_name, body: _hash
   end
 
@@ -158,9 +179,9 @@ class Restaurant < ActiveRecord::Base
         multi_match: {
           query: _str,
           fields: [
-            "name.kuromoji^2",
-            "name.ngram",
-            "address.kuromoji^2",
+            "name_kuromoji^5",
+            "name_ngram",
+            "address.kuromoji^5",
             "address.ngram"
           ],
         }
