@@ -1,0 +1,7 @@
+development:
+  adapter: mysql2
+  encoding: utf8
+  database: test_driven_search
+  pool: 2
+  username: your-name
+  password: your-passwd

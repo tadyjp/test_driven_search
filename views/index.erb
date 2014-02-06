@@ -5,6 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="typeahead.js-bootstrap.css">
     <title>テスト駆動検索 by tady</title>
 
     <style type="text/css">
@@ -27,6 +28,9 @@
         line-height: 13px;
         color: rgb(68,68,68);
       }
+      .twitter-typeahead {
+        width: 100%;
+      }
     </style>
   </head>
   <body>
@@ -37,7 +41,7 @@
         <form role="form" >
           <div class="row">
             <div class="col-md-9 col-sm-9 col-xs-9">
-              <input type="search" class="form-control" name="q" placeholder="ラーメン..." style="!width: 80%" value="<%= @query %>">
+              <input id="search" type="search" class="form-control" name="q" placeholder="ラーメン..." style="width: 100%" value="<%= @query %>">
             </div>
             <div class="col-md-3 col-sm-3 col-xs-3">
               <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search"></span></button>
@@ -45,6 +49,13 @@
           </div>
         </form>
         <p><%= "検索時間: #{@took}ms" if @took %> <%= "ヒット: #{@count}件" if @count %></p>
+        <% if @did_you_mean && @did_you_mean.size > 0 %>
+          <p>もしかして？
+            <% @did_you_mean.each do |term| %>
+              <a href="?q=<%= term['text'] %>"><i class="link"><%= term['text'] %></i></a>
+            <% end %>
+          </p>
+        <% end %>
       </div>
 
       <div class="row">
@@ -83,6 +94,22 @@
 
     </div>
     <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="http://twitter.github.io/typeahead.js/releases/latest/typeahead.bundle.min.js"></script>
     <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+      var bh = new Bloodhound({
+        datumTokenizer: function(d) { return Bloodhound.tokenizers.whitespace(d.value); },
+        queryTokenizer: Bloodhound.tokenizers.whitespace,
+        remote: 'complete.json?q=%QUERY',
+        // prefetch: '../data/films/post_1960.json'
+      });
+
+      bh.initialize();
+
+      $('#search').typeahead(null, {
+        displayKey: 'value',
+        source: bh.ttAdapter()
+      });
+    </script>
   </body>
 </html>

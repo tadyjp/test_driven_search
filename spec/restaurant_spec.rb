@@ -25,6 +25,16 @@ describe 'Restaurant' do
   describe 'query' do
     it 'ラーメン' do
       expect(Restaurant.search('ラーメン')[:ids]).to include(1002)
+      expect(Restaurant.search('ラーメン')[:ids]).to include(1004)
+      expect(Restaurant.search('ラーメン')[:ids]).to include(1006)
+    end
+
+    it 'ラーメン東京一番' do
+      expect(Restaurant.search('ラーメン東京一番')[:ids]).to include(1004)
+    end
+
+    it '新宿ラーメン' do
+      expect(Restaurant.search('新宿ラーメン')[:ids]).to include(1002)
     end
 
     it 'jack - 大文字小文字' do
@@ -53,7 +63,7 @@ describe 'Restaurant' do
 
   describe 'suggest' do
     it 'ラメーン > ラーメン' do
-      expect(Restaurant.suggest('ラメーン')[0]['text']).to eq('ラーメン')
+      expect(Restaurant.search('ラメーン')[:suggests][0]['text']).to eq('ラーメン')
     end
   end
 

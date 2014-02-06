@@ -168,9 +168,9 @@ class Restaurant < ActiveRecord::Base
         multi_match: {
           query: _str,
           fields: [
-            "name.kuromoji^5",
-            "name.ngram",
-            "address.kuromoji^5",
+            "name.kuromoji^10",
+            "name.ngram^5",
+            "address.kuromoji^2",
             "address.ngram"
           ],
         }
@@ -189,12 +189,22 @@ class Restaurant < ActiveRecord::Base
           }
         }
       },
+      suggest: {
+        name_suggest: {
+          text: _str,
+          term: {
+            field: 'name.kuromoji',
+            size: 3
+          }
+        }
+      },
       fields: ['id'],
       size: 100,
     }
 
     {
       ids: response['hits']['hits'].map{ |i| i['fields']['id'] }.flatten,
+      suggests: response['suggest']['name_suggest'][0]['options'],
       response: response
     }
     # {
@@ -204,20 +214,20 @@ class Restaurant < ActiveRecord::Base
     # }
   end
 
-  def self.suggest(_str)
-    response = es_client.search :index => es_index_name, body: {
-      suggest: {
-        name_suggest: {
-          text: _str,
-          term: {
-            field: 'name.kuromoji'
-          }
-        }
-      }
-    }
+  # def self.suggest(_str)
+  #   response = es_client.search :index => es_index_name, body: {
+  #     suggest: {
+  #       name_suggest: {
+  #         text: _str,
+  #         term: {
+  #           field: 'name.kuromoji'
+  #         }
+  #       }
+  #     }
+  #   }
 
-    response['suggest']['name_suggest'][0]['options']
-  end
+  #   response['suggest']['name_suggest'][0]['options']
+  # end
 
   def self.completion(_str)
     response = es_client.search :index => es_index_name, body: {

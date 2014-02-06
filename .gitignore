@@ -19,3 +19,4 @@ doc/
 
 *.db
 *.csv
+database.yml
