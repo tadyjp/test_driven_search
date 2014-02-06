@@ -1,42 +1,52 @@
 require 'active_record'
 require 'active_support'
-require 'elasticsearch'
 
 ActiveRecord::Base.configurations = YAML.load_file('database.yml')
 ActiveRecord::Base.establish_connection('development')
 
+require 'elasticsearch'
+
 class Restaurant < ActiveRecord::Base
 
+  # ElasticSearchのHost
   def self.es_host
     'localhost:9200'
   end
 
+  # index名
   def self.es_index_name
     'livedoor-gourmet'
   end
 
+  # Restaurantモデルに紐づくtype名
   def self.es_type_name
     'restaurant'
   end
 
+  # ElasticSearchクライアント
   def self.es_client
     @_es_client ||= Elasticsearch::Client.new host: es_host, log: true
   end
 
+  # index refresh
+  def self.es_refresh_index
+    es_client.indices.refresh index: es_index_name
+  end
+
+  # index削除
   def self.es_delete_index
     if es_client.indices.exists index: es_index_name
       es_client.indices.delete index: es_index_name
     end
   end
 
+  # indexの定義(Settings, Mappings)
   def self.es_create_index
     es_client.indices.create index: es_index_name, body: {
       settings: {
         index: {
           number_of_shards: 5,
           number_of_replicas: 1,
-          # 'routing.allocation.include.name' => 'node-1',
-          # store: { type: options[:in_memory] ? 'memory' : nil },
         },
         analysis: {
           tokenizer: {
@@ -55,12 +65,6 @@ class Restaurant < ActiveRecord::Base
               tokenizer: 'ngram_tokenizer',
               filter: ['lowercase', 'stop'],
             },
-            kuromoji_analyzer: {
-              type: 'custom',
-              tokenizer: 'kuromoji_tokenizer',
-              # filter: ['kuromoji_baseform', 'pos_filter', 'greek_lowercase_filter', 'cjk_width']
-              filter: ['kuromoji_baseform', 'kuromoji_readingform'],
-            },
           }
         }
       },
@@ -68,76 +72,31 @@ class Restaurant < ActiveRecord::Base
         restaurant: {
           _id: {path: 'id'},
           properties: {
-            id:                {type: 'integer', index: 'not_analyzed'},
-            # name:              {type: 'string', analyzer: 'ngram_analyzer'},
-
-            # うまくsearch analyzerが設定できない...
+            id:   {type: 'integer', index: 'not_analyzed'},
             name: {
               type: 'multi_field',
-              # path: 'address2',
               fields: {
-                ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
-                kuromoji: {type: 'string', analyzer: 'kuromoji'},
+                name:       {type: 'string', analyzer: 'ngram_analyzer'},
+                suggest:    {type: 'string', analyzer: 'kuromoji'},
+                completion: {type: 'completion', analyzer: 'ngram_analyzer'},
               }
             },
-
-            name_completion: {type: 'completion', analyzer: 'kuromoji'},
-
-            # name_ngram:        {type: 'string', analyzer: 'ngram_analyzer'},
-            # name_kuromoji:     {type: 'string', analyzer: 'kuromoji'},
-
-            property:          {type: 'string', analyzer: 'ngram_analyzer'},
-            alphabet:          {type: 'string', analyzer: 'ngram_analyzer'},
-            name_kana:         {type: 'string', analyzer: 'ngram_analyzer'},
-            pref_id:           {type: 'integer', index: 'not_analyzed'},
-            # area_id:           {type: 'integer', index: 'not_analyzed'},
-            # station_id1:       {type: 'integer', index: 'not_analyzed'},
-            # station_time1:     {type: 'integer', index: 'not_analyzed'},
-            # station_distance1: {type: 'integer', index: 'not_analyzed'},
-            # station_id2:       {type: 'integer', index: 'not_analyzed'},
-            # station_time2:     {type: 'integer', index: 'not_analyzed'},
-            # station_distance2: {type: 'integer', index: 'not_analyzed'},
-            # station_id3:       {type: 'integer', index: 'not_analyzed'},
-            # station_time3:     {type: 'integer', index: 'not_analyzed'},
-            # station_distance3: {type: 'integer', index: 'not_analyzed'},
-            category_ids:      {type: 'integer', index: 'not_analyzed'},
-            zip:               {type: 'string', index: 'not_analyzed'},
-            address:     {
-              type: 'multi_field',
-              # path: 'address2',
-              fields: {
-                ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
-                kuromoji: {type: 'string', analyzer: 'kuromoji'},
-              }
-            },
-            # north_latitude:    {type: 'string', analyzer: 'ngram_analyzer'},
-            # east_longitude:    {type: 'string', analyzer: 'ngram_analyzer'},
-            description:       {type: 'string', analyzer: 'ngram_analyzer'},
-            # purpose:           {type: 'string', analyzer: 'ngram_analyzer'},
-            # open_morning:      {type: 'string', analyzer: 'ngram_analyzer'},
-            # open_lunch:        {type: 'string', analyzer: 'ngram_analyzer'},
-            # open_late:         {type: 'string', analyzer: 'ngram_analyzer'},
-            # photo_count:       {type: 'integer', analyzer: 'ngram_analyzer'},
-            # special_count:     {type: 'integer', analyzer: 'ngram_analyzer'},
-            # menu_count:        {type: 'integer', analyzer: 'ngram_analyzer'},
-            # fan_count:         {type: 'integer', analyzer: 'ngram_analyzer'},
-            # access_count:      {type: 'integer', analyzer: 'ngram_analyzer'},
-            # created_on:        {type: 'date', format: 'YYYY-MM-dd HH:mm:ss'},
-            # modified_on:       {type: 'date', format: 'YYYY-MM-dd HH:mm:ss'},
-            # closed:            {type: 'integer', analyzer: 'ngram_analyzer'},
+            property:       {type: 'string', analyzer: 'ngram_analyzer'},
+            alphabet:       {type: 'string', analyzer: 'ngram_analyzer'},
+            name_kana:      {type: 'string', analyzer: 'ngram_analyzer'},
+            pref_id:        {type: 'integer', index: 'not_analyzed'},
+            category_ids:   {type: 'integer', index: 'not_analyzed'},
+            zip:            {type: 'string', index: 'not_analyzed'},
+            address:        {type: 'string', analyzer: 'kuromoji'},
+            description:    {type: 'string', analyzer: 'kuromoji'},
           }
         }
       }
     }
   end
 
-  def self.es_refresh_index
-    es_client.indices.refresh index: es_index_name
-  end
 
   def self.es_index_doc(_hash)
-    _hash[:name_completion] = _hash[:name] # オートコンプリート用
-
     es_client.index index: es_index_name, type: es_type_name, body: _hash
   end
 
@@ -168,10 +127,9 @@ class Restaurant < ActiveRecord::Base
         multi_match: {
           query: _str,
           fields: [
-            "name.kuromoji^10",
-            "name.ngram^5",
-            "address.kuromoji^2",
-            "address.ngram"
+            "name^10",
+            "address",
+            "description"
           ],
         }
       },
@@ -193,7 +151,7 @@ class Restaurant < ActiveRecord::Base
         name_suggest: {
           text: _str,
           term: {
-            field: 'name.kuromoji',
+            field: 'name.suggest',
             size: 3
           }
         }
@@ -207,27 +165,7 @@ class Restaurant < ActiveRecord::Base
       suggests: response['suggest']['name_suggest'][0]['options'],
       response: response
     }
-    # {
-    #   ids: response['hits']['hits'].map{ |i| i['_source']['id'] },
-    #   hits: response['hits'],
-    #   facets: response['facets'],
-    # }
   end
-
-  # def self.suggest(_str)
-  #   response = es_client.search :index => es_index_name, body: {
-  #     suggest: {
-  #       name_suggest: {
-  #         text: _str,
-  #         term: {
-  #           field: 'name.kuromoji'
-  #         }
-  #       }
-  #     }
-  #   }
-
-  #   response['suggest']['name_suggest'][0]['options']
-  # end
 
   def self.completion(_str)
     response = es_client.search :index => es_index_name, body: {
@@ -235,7 +173,7 @@ class Restaurant < ActiveRecord::Base
         name_completion: {
           text: _str,
           completion: {
-            field: 'name_completion'
+            field: 'name.completion'
           }
         }
       }

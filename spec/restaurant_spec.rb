@@ -12,12 +12,12 @@ describe 'Restaurant' do
     Restaurant.es_delete_index
     Restaurant.es_create_index # in_memory: true
 
-    Restaurant.es_index_doc id: 1001, name: 'らーめん田中', address: '東京都千代田区', pref_id: 13
-    Restaurant.es_index_doc id: 1002, name: '新宿ラーメン', address: '神奈川県横浜', pref_id: 14
-    Restaurant.es_index_doc id: 1003, name: 'カフェ Jack', address: '東京都港区区', pref_id: 13
-    Restaurant.es_index_doc id: 1004, name: 'ラーメン東京一番', address: '東京都新宿区', pref_id: 13
-    Restaurant.es_index_doc id: 1005, name: 'カフェ Taro', address: '京都府左京区', pref_id: 26
-    Restaurant.es_index_doc id: 1006, name: 'ラーメン 三郎', address: '東京都大田区', pref_id: 13
+    Restaurant.es_index_doc id: 1001, name: 'らーめん田中',     address: '東京都千代田区', pref_id: 13
+    Restaurant.es_index_doc id: 1002, name: '新宿ラーメン 来々軒',     address: '神奈川県横浜',   pref_id: 14
+    Restaurant.es_index_doc id: 1003, name: 'カフェ Jack',      address: '東京都港区区',   pref_id: 13
+    Restaurant.es_index_doc id: 1004, name: 'ラーメン東京一番', address: '東京都新宿区',   pref_id: 13
+    Restaurant.es_index_doc id: 1005, name: 'カフェ Taro',      address: '京都府左京区',   pref_id: 26
+    Restaurant.es_index_doc id: 1006, name: 'ラーメン 三郎',    address: '東京都大田区',   pref_id: 13
 
     Restaurant.es_refresh_index
   end
@@ -42,12 +42,28 @@ describe 'Restaurant' do
     end
   end
 
-  describe 'boost - 住所優先' do
-    it do
-      ids = Restaurant.search('京都')[:ids]
-      expect(ids).to include(1006)
-      expect(ids).to include(1005)
-      expect(ids.index(1006)).to be > ids.index(1005)
+  describe 'query - tokenizeテスト' do
+    it '京都 > 東京都を含まない' do
+      expect(Restaurant.search('京都')[:ids]).not_to include(1004)
+    end
+
+    it '京都 > 京都を含む' do
+      expect(Restaurant.search('京都')[:ids]).to include(1005)
+    end
+  end
+
+  describe 'boost' do
+    it '新宿 > nameに含まれる' do
+      expect(Restaurant.search('新宿')[:ids]).to include(1002)
+    end
+
+    it '新宿 > addressに含まれる' do
+      expect(Restaurant.search('新宿')[:ids]).to include(1004)
+    end
+
+    it '新宿 > nameを優先' do
+      ids = Restaurant.search('新宿')[:ids]
+      expect(ids.index(1002)).to be < ids.index(1004)
     end
   end
 
@@ -69,7 +85,7 @@ describe 'Restaurant' do
 
   describe 'completion' do
     it 'ラー > ラーメン' do
-      expect(Restaurant.completion('ラー')[0]['text']).to include('ラー')
+      expect(Restaurant.completion('ラー')[0]['text']).to include('ラーメン')
     end
   end
 end

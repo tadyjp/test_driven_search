@@ -1,5 +1,5 @@
 require 'csv'
-require 'sqlite3'
+require 'mysql2'
 require_relative 'models/restaurant'
 
 def db_connection
