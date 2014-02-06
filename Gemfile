@@ -8,7 +8,9 @@ gem 'rspec'
 gem 'hashie'
 gem 'guard-rspec'
 gem 'factory_girl', '~> 4.0'
+
 gem 'sinatra'
+
 gem 'activerecord'
 gem 'activesupport'
 gem 'rake'

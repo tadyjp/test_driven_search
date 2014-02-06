@@ -34,7 +34,7 @@ class Restaurant < ActiveRecord::Base
       settings: {
         index: {
           number_of_shards: 5,
-          number_of_replicas: 0,
+          number_of_replicas: 1,
           # 'routing.allocation.include.name' => 'node-1',
           # store: { type: options[:in_memory] ? 'memory' : nil },
         },
@@ -48,31 +48,18 @@ class Restaurant < ActiveRecord::Base
             }
           },
           filter: {
-            ngram_filter: {
-              type: 'nGram',
-              min_gram: 2,
-              max_gram: 7
-            },
-            katakana_readingform: {
-              type: 'kuromoji_readingform',
-              use_romaji: false
-            },
-            ja_collator: {
-              type: 'icu_collation',
-              language: 'ja'
-            }
           },
           analyzer: {
             ngram_analyzer: {
               type: 'custom',
               tokenizer: 'ngram_tokenizer',
-              filter: ['lowercase', 'stop', 'ja_collator'],
+              filter: ['lowercase', 'stop'],
             },
             kuromoji_analyzer: {
               type: 'custom',
               tokenizer: 'kuromoji_tokenizer',
               # filter: ['kuromoji_baseform', 'pos_filter', 'greek_lowercase_filter', 'cjk_width']
-              filter: ['kuromoji_baseform', 'katakana_readingform'],
+              filter: ['kuromoji_baseform', 'kuromoji_readingform'],
             },
           }
         }
@@ -85,22 +72,24 @@ class Restaurant < ActiveRecord::Base
             # name:              {type: 'string', analyzer: 'ngram_analyzer'},
 
             # うまくsearch analyzerが設定できない...
-            # name: {
-            #   type: 'multi_field',
-            #   # path: 'address2',
-            #   fields: {
-            #     ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
-            #     kuromoji: {type: 'string', analyzer: 'kuromoji_analyzer'},
-            #   }
-            # },
+            name: {
+              type: 'multi_field',
+              # path: 'address2',
+              fields: {
+                ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
+                kuromoji: {type: 'string', analyzer: 'kuromoji'},
+              }
+            },
 
-            name_ngram:        {type: 'string', analyzer: 'ngram_analyzer'},
-            name_kuromoji:     {type: 'string', analyzer: 'kuromoji_analyzer'},
+            name_completion: {type: 'completion', analyzer: 'kuromoji'},
+
+            # name_ngram:        {type: 'string', analyzer: 'ngram_analyzer'},
+            # name_kuromoji:     {type: 'string', analyzer: 'kuromoji'},
 
             property:          {type: 'string', analyzer: 'ngram_analyzer'},
             alphabet:          {type: 'string', analyzer: 'ngram_analyzer'},
             name_kana:         {type: 'string', analyzer: 'ngram_analyzer'},
-            # pref_id:           {type: 'integer', index: 'not_analyzed'},
+            pref_id:           {type: 'integer', index: 'not_analyzed'},
             # area_id:           {type: 'integer', index: 'not_analyzed'},
             # station_id1:       {type: 'integer', index: 'not_analyzed'},
             # station_time1:     {type: 'integer', index: 'not_analyzed'},
@@ -111,23 +100,19 @@ class Restaurant < ActiveRecord::Base
             # station_id3:       {type: 'integer', index: 'not_analyzed'},
             # station_time3:     {type: 'integer', index: 'not_analyzed'},
             # station_distance3: {type: 'integer', index: 'not_analyzed'},
-            # category_id1:      {type: 'integer', index: 'not_analyzed'},
-            # category_id2:      {type: 'integer', index: 'not_analyzed'},
-            # category_id3:      {type: 'integer', index: 'not_analyzed'},
-            # category_id4:      {type: 'integer', index: 'not_analyzed'},
-            # category_id5:      {type: 'integer', index: 'not_analyzed'},
-            # zip:               {type: 'string', index: 'not_analyzed'},
+            category_ids:      {type: 'integer', index: 'not_analyzed'},
+            zip:               {type: 'string', index: 'not_analyzed'},
             address:     {
               type: 'multi_field',
               # path: 'address2',
               fields: {
                 ngram:    {type: 'string', analyzer: 'ngram_analyzer'},
-                kuromoji: {type: 'string', analyzer: 'kuromoji_analyzer'},
+                kuromoji: {type: 'string', analyzer: 'kuromoji'},
               }
             },
             # north_latitude:    {type: 'string', analyzer: 'ngram_analyzer'},
             # east_longitude:    {type: 'string', analyzer: 'ngram_analyzer'},
-            # description:       {type: 'string', analyzer: 'ngram_analyzer'},
+            description:       {type: 'string', analyzer: 'ngram_analyzer'},
             # purpose:           {type: 'string', analyzer: 'ngram_analyzer'},
             # open_morning:      {type: 'string', analyzer: 'ngram_analyzer'},
             # open_lunch:        {type: 'string', analyzer: 'ngram_analyzer'},
@@ -151,9 +136,7 @@ class Restaurant < ActiveRecord::Base
   end
 
   def self.es_index_doc(_hash)
-    name = _hash.delete(:name)
-    _hash[:name_ngram] = name
-    _hash[:name_kuromoji] = name
+    _hash[:name_completion] = _hash[:name] # オートコンプリート用
 
     es_client.index index: es_index_name, type: es_type_name, body: _hash
   end
@@ -163,31 +146,91 @@ class Restaurant < ActiveRecord::Base
   end
 
   def es_index_hash
-    self.attributes.slice('id', 'name', 'property', 'alphabet', 'name_kana', 'pref_id', 'area_id', 'station_id1', 'station_time1', 'station_distance1', 'station_id2', 'station_time2', 'station_distance2', 'station_id3', 'station_time3', 'station_distance3', 'category_id1', 'category_id2', 'category_id3', 'category_id4', 'category_id5', 'zip', 'address', 'north_latitude', 'east_longitude', 'description', 'purpose', 'open_morning', 'open_lunch', 'open_late', 'photo_count', 'special_count', 'menu_count', 'fan_count', 'access_count', 'created_on', 'modified_on', 'close')
+    {
+      id: self.id,
+      name: self.name,
+      property: self.property,
+      pref_id: self.pref_id,
+      category_ids: [self.category_id1, self.category_id2, self.category_id3, self.category_id4, self.category_id5].select{ |i| i > 0 },
+      zip: self.zip,
+      address: self.address,
+      description: self.description
+    }
   end
 
   def es_index
-    self.class.es_index_docs(self)
+    self.class.es_index_doc(self.es_index_hash)
   end
 
   def self.search(_str)
-    # response = es_client.search :index => es_index_name, body: {
-    #   query: { match: { _all: _str } }
-    # }
     response = es_client.search :index => es_index_name, body: {
       query: {
         multi_match: {
           query: _str,
           fields: [
-            "name_kuromoji^5",
-            "name_ngram",
+            "name.kuromoji^5",
+            "name.ngram",
             "address.kuromoji^5",
             "address.ngram"
           ],
         }
-      }
+      },
+      facets: {
+        pref_id_facet: {
+          terms: {
+            field: 'pref_id',
+            size: 10
+          }
+        },
+        category_ids_facet: {
+          terms: {
+            field: 'category_ids',
+            size: 10
+          }
+        }
+      },
+      fields: ['id'],
+      size: 100,
     }
-    response['hits']['hits'].map{|i| i['_source']['id']}
+
+    {
+      ids: response['hits']['hits'].map{ |i| i['fields']['id'] }.flatten,
+      response: response
+    }
+    # {
+    #   ids: response['hits']['hits'].map{ |i| i['_source']['id'] },
+    #   hits: response['hits'],
+    #   facets: response['facets'],
+    # }
   end
 
+  def self.suggest(_str)
+    response = es_client.search :index => es_index_name, body: {
+      suggest: {
+        name_suggest: {
+          text: _str,
+          term: {
+            field: 'name.kuromoji'
+          }
+        }
+      }
+    }
+
+    response['suggest']['name_suggest'][0]['options']
+  end
+
+  def self.completion(_str)
+    response = es_client.search :index => es_index_name, body: {
+      suggest: {
+        name_completion: {
+          text: _str,
+          completion: {
+            field: 'name_completion'
+          }
+        }
+      }
+    }
+
+    response['suggest']['name_completion'][0]['options']
+  end
 end

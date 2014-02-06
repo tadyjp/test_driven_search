@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
+    <title>テスト駆動検索 by tady</title>
+
+    <style type="text/css">
+      .item {
+        margin-bottom: 40px;
+      }
+      .link {
+        font-size: 16px;
+        line-height: 16px;
+        color: rgb(30,15,190);
+        text-decoration: underline solid rgb(30, 15, 190) !important;
+      }
+      .address {
+        font-size: 14px;
+        line-height: 14px;
+        color: rgb(0,102,33);
+      }
+      .description {
+        font-size: 13px;
+        line-height: 13px;
+        color: rgb(68,68,68);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+
+      <div style="margin: 80px 0;">
+        <h1>レストラン検索</h1>
+        <form role="form" >
+          <div class="row">
+            <div class="col-md-9 col-sm-9 col-xs-9">
+              <input type="search" class="form-control" name="q" placeholder="ラーメン..." style="!width: 80%" value="<%= @query %>">
+            </div>
+            <div class="col-md-3 col-sm-3 col-xs-3">
+              <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-search"></span></button>
+            </div>
+          </div>
+        </form>
+        <p><%= "検索時間: #{@took}ms" if @took %> <%= "ヒット: #{@count}件" if @count %></p>
+      </div>
+
+      <div class="row">
+        <div class="col-md-8 col-sm-8 col-xs-8">
+          <% @restaurants.each do |restaurant| %>
+            <div class="item">
+              <p class="link"><%= restaurant.name %></p>
+              <p class="address"><%= restaurant.address %></p>
+              <p class="description"><%= restaurant.description %></p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="col-md-4 col-sm-4 col-xs-4">
+          <%# pref_id Facets %>
+          <% if @pref_id_facets %>
+            <ul class="list-group">
+              <li class="list-group-item list-group-item-success">都道府県で絞る</li>
+              <% @pref_id_facets.each do |terms| %>
+                <li class="list-group-item link"><%= Pref.find_by(id: terms['term']).try(:name) %> <span class="badge"><%= terms['count'] %></span></li>
+              <% end %>
+            </ul>
+          <% end %>
+
+          <%# category_ids Facets %>
+          <% if @category_ids_facets %>
+            <ul class="list-group">
+              <li class="list-group-item list-group-item-success">カテゴリで絞る</li>
+              <% @category_ids_facets.each do |terms| %>
+                <li class="list-group-item link"><%= Category.find_by(id: terms['term']).try(:name) %> <span class="badge"><%= terms['count'] %></span></li>
+              <% end %>
+            </ul>
+          <% end %>
+        </div>
+      </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
+  </body>
+</html>
